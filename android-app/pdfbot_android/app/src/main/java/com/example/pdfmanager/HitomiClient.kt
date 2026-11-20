@@ -155,8 +155,16 @@ object HitomiClient {
                 setRequestProperty("Referer", "https://hitomi.la/")
                 setRequestProperty("Range", "bytes=$start-${start + length}")
             }
-            if (connection.responseCode !in 200..299) null
-            else connection.inputStream.use { it.readBytes() }
+            val code = connection.responseCode
+            if (code == HttpURLConnection.HTTP_PARTIAL) {
+                connection.inputStream.use { it.readBytes() }
+            } else if (code == HttpURLConnection.HTTP_OK && start == 0L) {
+                connection.inputStream.use { it.readNBytes(length + 1) }
+            } else {
+                // Si el servidor ignora Range, no se puede interpretar el inicio del índice
+                // como si correspondiera al nodo solicitado.
+                null
+            }
         } catch (_: Exception) { null } finally { connection?.disconnect() }
     }
 
@@ -200,7 +208,7 @@ object HitomiClient {
             .replace(Regex("""\s+"""), " ").trim()
 
     private fun tokens(value: String): Set<String> =
-        normalize(value).split(Regex("""[^\\p{L}\\p{N}]+""")).filter { it.length >= 2 }.toSet()
+        normalize(value).split(Regex("""[^\p{L}\p{N}]+""")).filter { it.length >= 2 }.toSet()
 
     private fun normalize(value: String): String =
         java.text.Normalizer.normalize(value.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD)
@@ -213,7 +221,7 @@ object HitomiClient {
 
     fun hashtags(tags: List<String>): String =
         tags.mapNotNull { tag ->
-            val safe = normalize(tag).replace(Regex("""[^\\p{L}\\p{N}]+"""), "_").trim('_')
+            val safe = normalize(tag).replace(Regex("""[^\p{L}\p{N}]+"""), "_").trim('_')
             if (safe.length < 2 || forbidden.any { safe.contains(it) }) null else "#$safe"
         }.distinct().take(25).joinToString(" ")
 }
