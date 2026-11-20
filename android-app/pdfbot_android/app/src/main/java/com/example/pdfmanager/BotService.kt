@@ -100,21 +100,19 @@ class BotService : Service() {
     try{
      checkStop()
      val name=doc.name?:"documento.pdf";val size=doc.length()
-     val key="${doc.uri}|$size|${doc.lastModified()}"
-     val entry=state[key]?:JSONObject()
-     if(size>50L*1024*1024){big++;entry.put("status","supera_50MB");state[key]=entry;saveState();continue}
-     if(entry.optBoolean("photo")&&entry.optBoolean("document")){sent++;continue}
-     if(!entry.optBoolean("photo")){
-      val cover=makeCover(doc)
-      try{cover.inputStream().use{upload("sendPhoto","photo",it,cover.name,"image/jpeg","📖 "+name.take(900))}}finally{cover.delete()}
-      entry.put("photo",true);state[key]=entry;saveState()
-     }
+     if(size>50L*1024*1024){big++;continue}
+     // Cada activación vuelve a publicar todos los PDF; no se consulta registro anti-duplicados.
+     val hitomi=try{HitomiClient.findByPdfName(name)}catch(_:Exception){null}
+     val tags=hitomi?.let{HitomiClient.hashtags(it.tags)}.orEmpty()
+     val caption=buildString {
+      append("📖 ");append(name.take(650))
+      if(tags.isNotBlank()){append("\\n");append(tags)}
+     }.take(1000)
+     val cover=makeCover(doc)
+     try{cover.inputStream().use{upload("sendPhoto","photo",it,cover.name,"image/jpeg",caption)}}finally{cover.delete()}
      checkStop()
-     if(!entry.optBoolean("document")){
-      val input=contentResolver.openInputStream(doc.uri)?:error("No se pudo abrir el PDF")
-      input.use{upload("sendDocument","document",it,name,"application/pdf",name.take(900))}
-      entry.put("document",true);state[key]=entry;saveState()
-     }
+     val input=contentResolver.openInputStream(doc.uri)?:error("No se pudo abrir el PDF")
+     input.use{upload("sendDocument","document",it,name,"application/pdf",caption)}
      sent++;notifyStatus("Publicando $name ($sent/${docs.size})")
      if(idx%5==4) adminMessage("📊 Revisados: ${idx+1}/${docs.size}\nCompletados: $sent\nSuperiores a 50 MB: $big\nErrores: $errors")
     }catch(e:InterruptedException){throw e}catch(e:Exception){errors++;adminMessage("⚠️ Error con ${doc.name}: ${e.message?:"fallo"}")}
