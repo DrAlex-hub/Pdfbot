@@ -194,7 +194,7 @@ object HitomiClient {
             .replace(Regex("""\s+"""), " ").trim()
 
     private fun tokens(value: String): Set<String> =
-        normalize(value).split(Regex("""[^a-z0-9]+""")).filter { it.length >= 2 }.toSet()
+        normalize(value).split(Regex("""[^\\p{L}\\p{N}]+""")).filter { it.length >= 2 }.toSet()
 
     private fun normalize(value: String): String =
         java.text.Normalizer.normalize(value.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD)
@@ -207,7 +207,7 @@ object HitomiClient {
 
     fun hashtags(tags: List<String>): String =
         tags.mapNotNull { tag ->
-            val safe = normalize(tag).replace(Regex("""[^a-z0-9]+"""), "_").trim('_')
+            val safe = normalize(tag).replace(Regex("""[^\\p{L}\\p{N}]+"""), "_").trim('_')
             if (safe.length < 2 || forbidden.any { safe.contains(it) }) null else "#$safe"
         }.distinct().take(25).joinToString(" ")
 }
