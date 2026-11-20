@@ -38,12 +38,12 @@ object HitomiClient {
             val end = raw.lastIndexOf('}')
             if (start < 0 || end <= start) continue
             val info = try { JSONObject(raw.substring(start, end + 1)) } catch (_: Exception) { continue }
-            val title = info.optString("title").ifBlank { info.optString(" japanese_title") }
+            val title = info.optString("title").ifBlank { info.optString("japanese_title") }
             if (title.isBlank()) continue
             val score = similarity(wanted, tokens(title))
             if (score > bestScore) {
                 val tags = extractTags(info)
-                if (tags.any { forbidden.contains(normalize(it)) }) continue
+                if (tags.any { tag -> val n=normalize(tag); forbidden.any { n.contains(it) } }) continue
                 bestScore = score
                 best = Match(title, tags, "https://hitomi.la/reader/$id.html")
             }
