@@ -105,7 +105,7 @@ class BotService : Service() {
      val tags=hitomi?.let{HitomiClient.hashtags(it.tags)}.orEmpty()
      val caption=buildString {
       append("📖 ");append(name.take(650))
-      if(tags.isNotBlank()){append("\\n");append(tags)}
+      if(tags.isNotBlank()){append("\n");append(tags)}
      }.take(1000)
      val cover=makeCover(doc)
      try{cover.inputStream().use{upload("sendPhoto","photo",it,cover.name,"image/jpeg",caption)}}finally{cover.delete()}
