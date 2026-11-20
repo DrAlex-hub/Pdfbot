@@ -72,17 +72,20 @@ object HitomiClient {
             }) continue
             val titleTokens = tokens(title)
             val matchedTokens = wanted.intersect(titleTokens).size
-            // Cobertura respecto al nombre del archivo: evita penalizar títulos
-            // que contienen palabras adicionales frente al nombre del PDF.
+            // No aceptar coincidencias basadas únicamente en palabras comunes.
+            // El nombre "Anata Shika Mienai" no debe confundirse con
+            // "Dameda Ore Mou Imouto Shika Mienai": solo comparten 2 de 3
+            // términos y el título candidato contiene demasiadas palabras ajenas.
             val coverage = matchedTokens.toDouble() / wanted.size.toDouble()
             val jaccard = similarity(wanted, titleTokens)
-            val score = coverage * 0.75 + jaccard * 0.25
+            if (coverage < 0.80 || jaccard < 0.50) continue
+            val score = coverage * 0.60 + jaccard * 0.40
             if (score > bestScore) {
                 bestScore = score
                 best = Match(title, tags, "https://hitomi.la/reader/$id.html")
             }
         }
-        return best?.takeIf { bestScore >= 0.35 }
+        return best
     }
 
     private fun shaPrefix(term: String): ByteArray =
