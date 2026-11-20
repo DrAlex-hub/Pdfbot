@@ -44,7 +44,8 @@ class BotService : Service() {
  private fun pollLoop(){
   try {
    val me=call("getMe",JSONObject())
-   sendMessage(admin.toString(),"🤖 PDF Bot conectado como @${me.optString("username")}. Usa /start.")
+    val botUsername = me.optString("username")
+    sendMessage(admin.toString(),"🤖 PDF Bot conectado como @$botUsername. Usa /start.")
    val old=call("getUpdates",JSONObject().put("offset",-1).put("timeout",1))
    var offset=if(old.length()>0) old.getJSONObject(old.length()-1).optLong("update_id")+1 else 0L
    while(!stopped.get()){
