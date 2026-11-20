@@ -1,0 +1,55 @@
+
+name: Extract Android source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Android project
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          archive = Path("pdfmanager_android_source_v0.4.zip")
+          target = Path("android-app")
+          target.mkdir(exist_ok=True)
+
+          with zipfile.ZipFile(archive) as z:
+              for item in z.infolist():
+                  name = item.filename.lstrip("/")
+                  p = PurePosixPath(name)
+
+                  if item.is_dir() or ".." in p.parts:
+                      continue
+
+                  if not p.parts:
+                      continue
+
+                  output = target.joinpath(*p.parts)
+                  output.parent.mkdir(parents=True, exist_ok=True)
+                  output.write_bytes(z.read(item))
+                  print("EXTRAIDO:", output)
+
+          print("EXTRACCION COMPLETADA")
+          PY
+
+      - name: Save Android source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android-app
+          git diff --cached --quiet || (
+            git commit -m "Extract Android application source" &&
+            git push
+          )
