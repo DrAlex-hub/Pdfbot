@@ -1,0 +1,64 @@
+name: Recover original bot source (private artifact)
+
+on:
+  push:
+    branches:
+      - bot-source-recovery
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract only bot.py and check for embedded credentials
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re
+          import zipfile
+          from pathlib import Path
+
+          archive = Path("pdfbot.zip")
+          output = Path("recovered-bot")
+          output.mkdir(exist_ok=True)
+
+          with zipfile.ZipFile(archive) as z:
+              matches = [i for i in z.infolist()
+                         if i.filename.lstrip("/") == "pdfbot/bot.py"]
+              if len(matches) != 1:
+                  raise SystemExit(f"Expected exactly one pdfbot/bot.py, found {len(matches)}")
+              data = z.read(matches[0])
+
+          target = output / "bot.py"
+          target.write_bytes(data)
+          source = data.decode("utf-8", errors="replace")
+
+          patterns = [
+              r"\b\d{7,12}:[A-Za-z0-9_-]{25,}\b",
+              r"(?i)(api[_-]?key|access[_-]?token|bot[_-]?token|secret)\\s*[:=]\\s*['\"][^'\"]{8,}['\"]",
+              r"(?i)-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
+          ]
+          findings = []
+          for number, line in enumerate(source.splitlines(), 1):
+              if any(re.search(pattern, line) for pattern in patterns):
+                  findings.append(number)
+
+          print(f"Extracted bot.py ({len(data)} bytes).")
+          if findings:
+              print("Potential embedded credentials detected on line(s): " + ", ".join(map(str, findings)))
+              print("Artifact upload blocked; source was not printed.")
+              raise SystemExit(2)
+          print("No common embedded credential patterns detected.")
+          PY
+
+      - name: Upload recovered source for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovered-bot-source
+          path: recovered-bot/bot.py
+          if-no-files-found: error
+          retention-days: 3
