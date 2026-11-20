@@ -48,6 +48,11 @@ object HitomiClient {
         var bestScore = 0.0
         for (id in candidates) {
             val info = fetchGallery(id.toString()) ?: continue
+            // Publicar únicamente galerías cuyo idioma declarado sea español.
+            val language = info.optString("language").lowercase(Locale.ROOT)
+            val localLanguage = info.optString("language_localname").lowercase(Locale.ROOT)
+            if (!language.startsWith("spanish") && !language.contains("español") &&
+                !localLanguage.contains("español") && !localLanguage.contains("spanish")) continue
             val title = info.optString("title").ifBlank { info.optString("japanese_title") }
             if (title.isBlank()) continue
             val tags = extractTags(info)
@@ -186,7 +191,7 @@ object HitomiClient {
         val result = linkedSetOf<String>()
         val fields = mapOf(
             "tags" to "tag", "artists" to "artist", "groups" to "group",
-            "parodys" to "parody", "characters" to "character"
+            "parodys" to "parody", "characters" to "character", "series" to "series"
         )
         for ((arrayName, valueName) in fields) {
             val values = info.optJSONArray(arrayName) ?: continue
