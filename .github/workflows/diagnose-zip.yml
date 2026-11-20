@@ -1,0 +1,39 @@
+
+name: Diagnose ZIP contents
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect ZIP
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+
+          path = Path("pdfbot.zip")
+          print("ZIP existe:", path.exists())
+
+          if not path.exists():
+              raise SystemExit("ERROR: no existe pdfbot.zip")
+
+          print("Tamaño:", path.stat().st_size, "bytes")
+
+          with zipfile.ZipFile(path) as z:
+              files = z.infolist()
+              print("Total de entradas:", len(files))
+
+              for item in files[:200]:
+                  print(repr(item.filename), item.file_size)
+
+              if not files:
+                  raise SystemExit("ERROR: ZIP vacío")
+          PY
