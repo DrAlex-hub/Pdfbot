@@ -43,7 +43,7 @@ class BotService : Service() {
 
  private fun pollLoop(){
   try {
-   val me=call("getMe",JSONObject())
+   val me=callObject("getMe",JSONObject()).getJSONObject("result")
     val botUsername = me.optString("username")
     sendMessage(admin.toString(),"🤖 PDF Bot conectado como @$botUsername. Usa /start.")
    val old=call("getUpdates",JSONObject().put("offset",-1).put("timeout",1))
@@ -144,6 +144,13 @@ class BotService : Service() {
  private fun part(out:OutputStream,b:String,n:String,v:String){out.write("--$b\r\nContent-Disposition: form-data; name=\"$n\"\r\n\r\n$v\r\n".toByteArray())}
  private fun sendMessage(chat:String,text:String){call("sendMessage",JSONObject().put("chat_id",chat).put("text",text))}
  private fun adminMessage(text:String){try{sendMessage(admin.toString(),text)}catch(_:Exception){}}
+ private fun callObject(method:String,data:JSONObject,timeout:Int=30000):JSONObject{
+  val c=(URL(api+method).openConnection() as HttpURLConnection).apply{requestMethod="POST";doOutput=true;connectTimeout=20000;readTimeout=timeout;setRequestProperty("Content-Type","application/json; charset=utf-8")}
+  c.outputStream.use{it.write(data.toString().toByteArray())}
+  val code=c.responseCode;val body=(if(code in 200..299)c.inputStream else c.errorStream).bufferedReader().use{it.readText()};c.disconnect()
+  val j=JSONObject(body);if(!j.optBoolean("ok"))error(j.optString("description","Telegram HTTP $code"))
+  return j
+ }
  private fun call(method:String,data:JSONObject,timeout:Int=30000):JSONArray{
   val c=(URL(api+method).openConnection() as HttpURLConnection).apply{requestMethod="POST";doOutput=true;connectTimeout=20000;readTimeout=timeout;setRequestProperty("Content-Type","application/json; charset=utf-8")}
   c.outputStream.use{it.write(data.toString().toByteArray())}
