@@ -87,24 +87,30 @@ object HitomiClient {
         return null
     }
 
-    private fun parseNode(bytes: ByteArray): Node? = try {
-        val b = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
-        val keyCount = b.int
-        if (keyCount !in 0..64) return null
-        val keys = ArrayList<ByteArray>(keyCount)
-        repeat(keyCount) {
-            val size = b.int
-            if (size !in 1..128 || size > b.remaining()) return null
-            val key = ByteArray(size); b.get(key); keys.add(key)
+    private fun parseNode(bytes: ByteArray): Node? {
+        return try {
+            val b = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+            val keyCount = b.int
+            if (keyCount !in 0..64) return null
+            val keys = ArrayList<ByteArray>(keyCount)
+            repeat(keyCount) {
+                val size = b.int
+                if (size !in 1..128 || size > b.remaining()) return null
+                val key = ByteArray(size)
+                b.get(key)
+                keys.add(key)
+            }
+            val dataCount = b.int
+            if (dataCount !in 0..64) return null
+            val data = ArrayList<Pointer>(dataCount)
+            repeat(dataCount) { data.add(Pointer(b.long, b.int)) }
+            val children = ArrayList<Long>(BRANCHING + 1)
+            repeat(BRANCHING + 1) { children.add(b.long) }
+            Node(keys, data, children)
+        } catch (_: Exception) {
+            null
         }
-        val dataCount = b.int
-        if (dataCount !in 0..64) return null
-        val data = ArrayList<Pointer>(dataCount)
-        repeat(dataCount) { data.add(Pointer(b.long, b.int)) }
-        val children = ArrayList<Long>(BRANCHING + 1)
-        repeat(BRANCHING + 1) { children.add(b.long) }
-        Node(keys, data, children)
-    } catch (_: Exception) { null }
+    }
 
     private fun compareUnsigned(a: ByteArray, b: ByteArray): Int {
         for (i in 0 until minOf(a.size, b.size)) {
