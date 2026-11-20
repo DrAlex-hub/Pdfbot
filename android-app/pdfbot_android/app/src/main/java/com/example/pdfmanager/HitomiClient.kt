@@ -40,8 +40,18 @@ object HitomiClient {
         }.filter { it.isNotEmpty() }
         if (idSets.isEmpty()) return null
 
-        val candidates = idSets.reduce { acc, ids -> acc.intersect(ids) }
-            .take(30)
+        // Cada término del nombre aporta candidatos independientes. Exigir la
+        // intersección de TODOS los términos descarta galerías válidas cuando el
+        // nombre del PDF contiene números, capítulos, traducciones o texto extra.
+        // En su lugar, priorizamos IDs que aparecen en más listas de términos.
+        val candidateHits = HashMap<Long, Int>()
+        for (ids in idSets) for (id in ids) {
+            candidateHits[id] = (candidateHits[id] ?: 0) + 1
+        }
+        val candidates = candidateHits.entries
+            .sortedWith(compareByDescending<Map.Entry<Long, Int>> { it.value }.thenBy { it.key })
+            .take(80)
+            .map { it.key }
         if (candidates.isEmpty()) return null
 
         var best: Match? = null
@@ -60,13 +70,19 @@ object HitomiClient {
                 val normalized = normalize(tag)
                 forbidden.any { normalized.contains(it) }
             }) continue
-            val score = similarity(wanted, tokens(title))
+            val titleTokens = tokens(title)
+            val matchedTokens = wanted.intersect(titleTokens).size
+            // Cobertura respecto al nombre del archivo: evita penalizar títulos
+            // que contienen palabras adicionales frente al nombre del PDF.
+            val coverage = matchedTokens.toDouble() / wanted.size.toDouble()
+            val jaccard = similarity(wanted, titleTokens)
+            val score = coverage * 0.75 + jaccard * 0.25
             if (score > bestScore) {
                 bestScore = score
                 best = Match(title, tags, "https://hitomi.la/reader/$id.html")
             }
         }
-        return best?.takeIf { bestScore >= 0.25 }
+        return best?.takeIf { bestScore >= 0.35 }
     }
 
     private fun shaPrefix(term: String): ByteArray =
