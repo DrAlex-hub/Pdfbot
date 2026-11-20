@@ -93,7 +93,7 @@ class BotService : Service() {
     for(c in d.listFiles()){ if(c.isDirectory) stack.add(c) else if(c.isFile&&c.name?.endsWith(".pdf",true)==true) docs.add(c) }
    }
    docs.sortBy{it.name?.lowercase()?:""}
-   var sent=0;var big=0;var errors=0
+   var sent=0;var big=0;var errors=0;var hitomiMatches=0;var hitomiMisses=0
    adminMessage("🚀 Procesamiento iniciado. Encontrados: ${docs.size} PDF.")
    for((idx,doc) in docs.withIndex()){
     try{
@@ -101,7 +101,8 @@ class BotService : Service() {
      val name=doc.name?:"documento.pdf";val size=doc.length()
      if(size>50L*1024*1024){big++;continue}
      // Cada activación vuelve a publicar todos los PDF; no se consulta registro anti-duplicados.
-     val hitomi=try{HitomiClient.findByPdfName(name)}catch(_:Exception){null}
+     val hitomi=try{HitomiClient.findByPdfName(name)}catch(e:Exception){adminMessage("⚠️ Hitomi.la falló con $name: ${e.message?:"error"}");null}
+     if(hitomi==null) hitomiMisses++ else hitomiMatches++
      val tags=hitomi?.let{HitomiClient.hashtags(it.tags)}.orEmpty()
      val caption=buildString {
       append("📖 ");append(name.take(650))
@@ -116,7 +117,7 @@ class BotService : Service() {
      if(idx%5==4) adminMessage("📊 Revisados: ${idx+1}/${docs.size}\nCompletados: $sent\nSuperiores a 50 MB: $big\nErrores: $errors")
     }catch(e:InterruptedException){throw e}catch(e:Exception){errors++;adminMessage("⚠️ Error con ${doc.name}: ${e.message?:"fallo"}")}
    }
-   adminMessage("✅ Procesamiento finalizado.\nCompletados: $sent\nSuperiores a 50 MB: $big\nErrores: $errors")
+   adminMessage("✅ Procesamiento finalizado.\nCompletados: $sent\nCoincidencias Hitomi.la: $hitomiMatches\nSin coincidencia: $hitomiMisses\nSuperiores a 50 MB: $big\nErrores: $errors")
    notifyStatus("Proceso terminado: $sent publicados")
   }catch(e:InterruptedException){adminMessage("⏸ Procesamiento detenido. Puedes reanudar con /procesar.");notifyStatus("Procesamiento detenido")}
  }
