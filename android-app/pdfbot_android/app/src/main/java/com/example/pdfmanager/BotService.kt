@@ -27,9 +27,8 @@ class BotService : Service() {
  private lateinit var channel:String
  private var admin=0L
  private val api get()="https://api.telegram.org/bot$token/"
- private val state=mutableMapOf<String,JSONObject>()
 
- override fun onCreate(){ super.onCreate(); createChannel(); loadState() }
+ override fun onCreate(){ super.onCreate(); createChannel() }
  override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
   if(intent?.action==STOP){ stopped.set(true); worker?.interrupt(); poller?.interrupt(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); return START_NOT_STICKY }
   if(poller?.isAlive==true) return START_NOT_STICKY
@@ -80,7 +79,7 @@ class BotService : Service() {
     sendMessage(admin.toString(),"▶️ Procesamiento solicitado.")
    }
    "/detener" -> { worker?.interrupt(); sendMessage(admin.toString(),"⏸ Solicitud de detención recibida.") }
-   "/estado" -> sendMessage(admin.toString(),"Estado: ${if(worker?.isAlive==true) "Procesando" else "En espera"}\nPDF completados: ${state.values.count{it.optBoolean("photo")&&it.optBoolean("document")}}")
+   "/estado" -> sendMessage(admin.toString(),"Estado: ${if(worker?.isAlive==true) "Procesando" else "En espera"}")
   }
  }
 
@@ -164,8 +163,6 @@ class BotService : Service() {
   val j=JSONObject(body);if(!j.optBoolean("ok"))error(j.optString("description","Telegram HTTP $code"))
   return j.opt("result") as? JSONArray ?: JSONArray()
  }
- private fun loadState(){val j=JSONObject(getSharedPreferences(PREFS,MODE_PRIVATE).getString("publish_state","{}")?:"{}");j.keys().forEach{state[it]=j.optJSONObject(it)?:JSONObject()}}
- private fun saveState(){val j=JSONObject();state.forEach{k,v->j.put(k,v)};getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("publish_state",j.toString()).apply()}
  private fun checkStop(){if(stopped.get()||Thread.currentThread().isInterrupted)throw InterruptedException()}
  private fun createChannel(){if(Build.VERSION.SDK_INT>=26)getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CH,"PDF Bot",NotificationManager.IMPORTANCE_LOW))}
  private fun makeNotification(text:String,ongoing:Boolean):Notification{
