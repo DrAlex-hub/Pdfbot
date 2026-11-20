@@ -105,7 +105,11 @@ class BotService : Service() {
      if(hitomi==null) hitomiMisses++ else hitomiMatches++
      val tags=hitomi?.let{HitomiClient.hashtags(it.tags)}.orEmpty()
      val caption=buildString {
-      append("📖 ");append(name.take(650))
+      append("📖 ");append(name.take(350))
+      if(hitomi!=null){
+       append("\n🔎 ");append(hitomi.title.take(220))
+       append("\n");append(hitomi.url)
+      }
       if(tags.isNotBlank()){append("\n");append(tags)}
      }.take(1000)
      val cover=makeCover(doc)
