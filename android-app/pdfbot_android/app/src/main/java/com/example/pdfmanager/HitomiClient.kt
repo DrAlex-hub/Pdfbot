@@ -219,9 +219,50 @@ object HitomiClient {
         return a.intersect(b).size.toDouble() / a.union(b).size.toDouble()
     }
 
+    // Conserva términos japoneses romanizados conocidos; no son etiquetas inglesas.
+    private val keepRomaji = setOf(
+        "mesugaki", "ntr", "netorare", "netori", "tsundere", "yandere",
+        "kuudere", "dandere", "senpai", "onee-san", "oneesan", "imouto",
+        "onii-san", "oniisan", "loli", "lolicon", "shota", "shotacon"
+    )
+    private val translationCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    private fun translateEnglishTag(tag: String): String {
+        val original = tag.trim()
+        if (original.isBlank() || normalize(original) in keepRomaji) return original
+        translationCache[original]?.let { return it }
+        var connection: HttpURLConnection? = null
+        return try {
+            val query = java.net.URLEncoder.encode(original, "UTF-8")
+            val address = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=$query"
+            connection = (URL(address).openConnection() as HttpURLConnection).apply {
+                connectTimeout = 5000
+                readTimeout = 7000
+                setRequestProperty("User-Agent", "Mozilla/5.0")
+            }
+            if (connection.responseCode !in 200..299) return original
+            val json = org.json.JSONArray(connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() })
+            val detectedLanguage = json.optString(2).lowercase(Locale.ROOT)
+            // Solo traducimos cuando el servicio identifica inequívocamente el tag como inglés.
+            if (detectedLanguage != "en" && !detectedLanguage.startsWith("en-")) return original
+            val segments = json.optJSONArray(0) ?: return original
+            val translated = buildString {
+                for (i in 0 until segments.length()) {
+                    append(segments.optJSONArray(i)?.optString(0).orEmpty())
+                }
+            }.trim()
+            if (translated.isBlank()) original else translated.also { translationCache[original] = it }
+        } catch (_: Exception) {
+            original
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
     fun hashtags(tags: List<String>): String =
         tags.mapNotNull { tag ->
-            val safe = normalize(tag).replace(Regex("""[^\p{L}\p{N}]+"""), "_").trim('_')
+            val translated = translateEnglishTag(tag)
+            val safe = normalize(translated).replace(Regex("""[^\p{L}\p{N}]+"""), "_").trim('_')
             if (safe.length < 2 || forbidden.any { safe.contains(it) }) null else "#$safe"
         }.distinct().take(25).joinToString(" ")
 }
