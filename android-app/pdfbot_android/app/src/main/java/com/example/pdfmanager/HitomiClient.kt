@@ -25,7 +25,7 @@ object HitomiClient {
         if (query.length < 3) return null
         val encoded = URLEncoder.encode(query, "UTF-8")
         val html = request("https://hitomi.la/search.html?q=$encoded") ?: return null
-        val ids = Regex("""-(\\d{3,})\\.html""")
+        val ids = Regex("""-(\d{3,})\.html""")
             .findAll(html).map { it.groupValues[1] }.distinct().take(12).toList()
         if (ids.isEmpty()) return null
 
@@ -89,10 +89,10 @@ object HitomiClient {
     private fun cleanTitle(fileName: String): String {
         return fileName.substringBeforeLast('.', fileName)
             .replace(Regex("""[._]+"""), " ")
-            .replace(Regex("""\\[[^]]*]"""), " ")
-            .replace(Regex("""\\([^)]*\\)"""), " ")
-            .replace(Regex("""[^\\p{L}\\p{N} ]"""), " ")
-            .replace(Regex("""\\s+"""), " ").trim()
+            .replace(Regex("""\[[^]]*]"""), " ")
+            .replace(Regex("""\([^)]*\)"""), " ")
+            .replace(Regex("""[^\p{L}\p{N} ]"""), " ")
+            .replace(Regex("""\s+"""), " ").trim()
     }
 
     private fun tokens(value: String): Set<String> =
@@ -101,7 +101,7 @@ object HitomiClient {
 
     private fun normalize(value: String): String =
         java.text.Normalizer.normalize(value.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD)
-            .replace(Regex("""\\p{Mn}+"""), "")
+            .replace(Regex("""\p{Mn}+"""), "")
 
     private fun similarity(a: Set<String>, b: Set<String>): Double {
         if (a.isEmpty() || b.isEmpty()) return 0.0
