@@ -50,9 +50,17 @@ class BotService : Service() {
    var offset=if(old.length()>0) old.getJSONObject(old.length()-1).optLong("update_id")+1 else 0L
    while(!stopped.get()){
     try{
-     val updates=call("getUpdates",JSONObject().put("offset",offset).put("timeout",25).put("allowed_updates",JSONArray().put("message")),35000)
+     val updates=call("getUpdates",JSONObject().put("offset",offset).put("timeout",25).put("allowed_updates",JSONArray().put("message").put("channel_post")),35000)
      for(i in 0 until updates.length()){
       val u=updates.getJSONObject(i); offset=u.optLong("update_id")+1
+      val post=u.optJSONObject("channel_post")
+      if(post!=null){
+       val chat=post.optJSONObject("chat")
+       val chatId=chat?.optLong("id")?:0L
+       val title=chat?.optString("title","Canal")?:"Canal"
+       if(chatId!=0L) adminMessage("🔎 Canal detectado: $title\\nID real: $chatId")
+       continue
+      }
       val m=u.optJSONObject("message")?:continue
       val from=m.optJSONObject("from")?:continue
       val txt=m.optString("text","")
