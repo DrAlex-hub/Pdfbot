@@ -78,7 +78,7 @@ object HitomiClient {
             // términos y el título candidato contiene demasiadas palabras ajenas.
             val coverage = matchedTokens.toDouble() / wanted.size.toDouble()
             val jaccard = similarity(wanted, titleTokens)
-            if (coverage < 0.80 || jaccard < 0.50) continue
+            if (coverage < 0.80 || jaccard < 0.35) continue
             val score = coverage * 0.60 + jaccard * 0.40
             if (score > bestScore) {
                 bestScore = score
@@ -232,7 +232,13 @@ object HitomiClient {
             .replace(Regex("""\s+"""), " ").trim()
 
     private fun tokens(value: String): Set<String> =
-        normalize(value).split(Regex("""[^\p{L}\p{N}]+""")).filter { it.length >= 2 }.toSet()
+        // Separa cambios entre letras y números: "10sai" y "10-sai"
+        // deben producir los mismos tokens.
+        normalize(value)
+            .replace(Regex("""(?<=\p{L})(?=\p{N})|(?<=\p{N})(?=\p{L})"""), " ")
+            .split(Regex("""[^\p{L}\p{N}]+"""))
+            .filter { it.length >= 2 }
+            .toSet()
 
     private fun normalize(value: String): String =
         java.text.Normalizer.normalize(value.lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD)
